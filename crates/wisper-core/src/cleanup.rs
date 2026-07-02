@@ -215,7 +215,9 @@ pub async fn command_edit(
     let content = content.ok_or("malformed LLM response")?;
     let mut text = content.trim();
     if text.starts_with("```") {
-        text = text.trim_start_matches("```").trim_start_matches(|c| c != '\n');
+        text = text
+            .trim_start_matches("```")
+            .trim_start_matches(|c| c != '\n');
         text = text.trim_end_matches("```");
     }
     let text = text.trim().to_string();

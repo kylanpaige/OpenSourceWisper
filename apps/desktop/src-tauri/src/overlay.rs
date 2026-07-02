@@ -13,23 +13,19 @@ fn ensure_window(app: &AppHandle) -> Option<tauri::WebviewWindow> {
     if let Some(w) = app.get_webview_window(OVERLAY_LABEL) {
         return Some(w);
     }
-    let win = WebviewWindowBuilder::new(
-        app,
-        OVERLAY_LABEL,
-        WebviewUrl::App("overlay.html".into()),
-    )
-    .title("Recording")
-    .inner_size(WIDTH, HEIGHT)
-    .resizable(false)
-    .decorations(false)
-    .transparent(true)
-    .always_on_top(true)
-    .skip_taskbar(true)
-    .shadow(false)
-    .visible(false)
-    .focused(false)
-    .build()
-    .ok()?;
+    let win = WebviewWindowBuilder::new(app, OVERLAY_LABEL, WebviewUrl::App("overlay.html".into()))
+        .title("Recording")
+        .inner_size(WIDTH, HEIGHT)
+        .resizable(false)
+        .decorations(false)
+        .transparent(true)
+        .always_on_top(true)
+        .skip_taskbar(true)
+        .shadow(false)
+        .visible(false)
+        .focused(false)
+        .build()
+        .ok()?;
 
     // Bottom-center of the primary monitor.
     if let Ok(Some(monitor)) = win.primary_monitor() {
@@ -55,7 +51,9 @@ pub fn sync(app: &AppHandle, phase: DictationPhase) {
         }
         return;
     }
-    let Some(win) = ensure_window(app) else { return };
+    let Some(win) = ensure_window(app) else {
+        return;
+    };
     match phase {
         DictationPhase::Idle => {
             let _ = win.hide();
