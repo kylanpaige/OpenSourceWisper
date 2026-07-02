@@ -143,6 +143,88 @@ pub async fn clean_transcript(
     }
 }
 
+/// Command Mode: apply a spoken instruction to selected text via the local LLM.
+/// Unlike `clean_transcript`, this requires the LLM — there is no deterministic
+/// fallback for "make this more formal".
+pub async fn command_edit(
+    cfg: &CleanupSettings,
+    instruction: &str,
+    selected_text: &str,
+) -> Result<String, String> {
+    let system = crate::prompts::COMMAND_RULES.to_string();
+    let user = crate::prompts::build_command_prompt(instruction.trim(), selected_text);
+
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_millis(cfg.timeout_ms.max(1000) * 2))
+        .build()
+        .map_err(|e| format!("http client error: {e}"))?;
+
+    let base = cfg.base_url.trim_end_matches('/');
+    let content = match cfg.provider {
+        CleanupProvider::Ollama => {
+            let body = json!({
+                "model": cfg.model,
+                "stream": false,
+                "options": { "temperature": 0.3 },
+                "messages": [
+                    { "role": "system", "content": system },
+                    { "role": "user", "content": user },
+                ],
+            });
+            let r = client
+                .post(format!("{base}/api/chat"))
+                .json(&body)
+                .send()
+                .await
+                .map_err(|e| format!("LLM unreachable: {e}"))?;
+            if !r.status().is_success() {
+                return Err(format!("LLM returned {}", r.status()));
+            }
+            r.json::<OllamaChatResponse>()
+                .await
+                .ok()
+                .and_then(|r| r.message)
+                .map(|m| m.content)
+        }
+        CleanupProvider::OpenAiCompat => {
+            let body = json!({
+                "model": cfg.model,
+                "temperature": 0.3,
+                "messages": [
+                    { "role": "system", "content": system },
+                    { "role": "user", "content": user },
+                ],
+            });
+            let r = client
+                .post(format!("{base}/v1/chat/completions"))
+                .json(&body)
+                .send()
+                .await
+                .map_err(|e| format!("LLM unreachable: {e}"))?;
+            if !r.status().is_success() {
+                return Err(format!("LLM returned {}", r.status()));
+            }
+            r.json::<OpenAiChatResponse>()
+                .await
+                .ok()
+                .and_then(|r| r.choices.into_iter().next())
+                .map(|c| c.message.content)
+        }
+    };
+
+    let content = content.ok_or("malformed LLM response")?;
+    let mut text = content.trim();
+    if text.starts_with("```") {
+        text = text.trim_start_matches("```").trim_start_matches(|c| c != '\n');
+        text = text.trim_end_matches("```");
+    }
+    let text = text.trim().to_string();
+    if text.is_empty() {
+        return Err("LLM returned empty text".into());
+    }
+    Ok(text)
+}
+
 /// Guard against common small-model misbehavior: preambles, wrapping quotes,
 /// code fences, and hallucinated essays. If the output looks unusable, fall
 /// back to an empty string so the caller keeps the raw transcript.
