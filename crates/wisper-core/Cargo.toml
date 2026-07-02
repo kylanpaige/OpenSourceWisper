@@ -1,0 +1,18 @@
+[package]
+name = "wisper-core"
+description = "Platform-agnostic core for OpenSourceWisper: settings, dictionary, formatting, prompts, model catalog, LLM cleanup client"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+regex = "1"
+thiserror = "2"
+chrono = { version = "0.4", features = ["serde"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "stream"] }
+
+[dev-dependencies]
+tokio = { version = "1", features = ["macros", "rt"] }
