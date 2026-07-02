@@ -93,8 +93,10 @@ mod tests {
 
     #[test]
     fn sections_toggle() {
-        let mut cfg = CleanupSettings::default();
-        cfg.format_lists = false;
+        let cfg = CleanupSettings {
+            format_lists: false,
+            ..Default::default()
+        };
         let p = build_system_prompt(&cfg, None, &[]);
         assert!(p.contains("filler words"));
         assert!(!p.contains("format them as a list"));
