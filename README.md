@@ -18,7 +18,7 @@
 
 ## Install / build
 
-Prereqs: [Rust](https://rustup.rs), Node 20+, and on Windows the [WebView2 runtime](https://developer.microsoft.com/microsoft-edge/webview2/) (preinstalled on Windows 11).
+Prereqs: [Rust](https://rustup.rs) **1.88+** (the repo pins 1.90 via `rust-toolchain.toml`, which rustup installs automatically — if you have an older Rust, run `rustup update stable` first), Node 20+, and on Windows the [WebView2 runtime](https://developer.microsoft.com/microsoft-edge/webview2/) (preinstalled on Windows 11).
 
 ```bash
 git clone https://github.com/kylanpaige/OpenSourceWisper

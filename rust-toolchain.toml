@@ -1,0 +1,6 @@
+# Pin a known-good Rust so a fresh clone builds without a version-mismatch error.
+# Several deps (darling, image, serde_with, time) require rustc >= 1.88; rustup
+# will auto-install this toolchain on the first cargo invocation in this repo.
+[toolchain]
+channel = "1.90.0"
+components = ["rustfmt", "clippy"]
