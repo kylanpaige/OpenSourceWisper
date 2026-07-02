@@ -1,7 +1,69 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import type { AppSettings, DictationResult, Phase } from "../types";
+import type { AppSettings, DictationResult, DownloadProgress, ModelStatus, Phase } from "../types";
+
+function SetupCard({ onReady }: { onReady: () => void }) {
+  const [recommended, setRecommended] = useState<ModelStatus | null>(null);
+  const [pct, setPct] = useState<number | null>(null);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    invoke<ModelStatus[]>("list_models").then((ms) => {
+      setRecommended(
+        ms.find((m) => m.file === "ggml-base.en.bin") ?? ms.find((m) => m.recommended) ?? null,
+      );
+    });
+    const unsubs: Array<() => void> = [];
+    listen<DownloadProgress>("download-progress", (e) => {
+      if (e.payload.total > 0) setPct(Math.round((e.payload.downloaded / e.payload.total) * 100));
+    }).then((u) => unsubs.push(u));
+    listen<{ file: string; error: string }>("download-done", (e) => {
+      setPct(null);
+      if (e.payload.error) setError(e.payload.error);
+      else onReady();
+    }).then((u) => unsubs.push(u));
+    return () => unsubs.forEach((u) => u());
+  }, [onReady]);
+
+  return (
+    <div className="card">
+      <h3>👋 One-time setup</h3>
+      <ol className="muted">
+        <li>
+          Download a speech model — everything runs on this machine.
+          {recommended && (
+            <div className="controls">
+              {pct === null ? (
+                <button
+                  className="primary"
+                  onClick={() => {
+                    setError("");
+                    setPct(0);
+                    invoke("download_model", { file: recommended.file }).catch((e) => {
+                      setError(String(e));
+                      setPct(null);
+                    });
+                  }}
+                >
+                  Download {recommended.label} ({recommended.size_mb} MB)
+                </button>
+              ) : (
+                <button disabled>Downloading… {pct}%</button>
+              )}
+            </div>
+          )}
+        </li>
+        <li>Allow microphone access when prompted.</li>
+        <li>
+          On macOS: grant Accessibility permission (System Settings → Privacy &amp; Security →
+          Accessibility) so text can be inserted where you type.
+        </li>
+      </ol>
+      {error && <p className="error small">{error}</p>}
+    </div>
+  );
+}
 
 export default function HomeTab({
   settings,
@@ -13,12 +75,20 @@ export default function HomeTab({
   lastResult: DictationResult | null;
 }) {
   const [level, setLevel] = useState(0);
+  const [hasModel, setHasModel] = useState(true);
+
+  const checkModels = useCallback(() => {
+    invoke<ModelStatus[]>("list_models")
+      .then((ms) => setHasModel(ms.some((m) => m.downloaded)))
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
+    checkModels();
     let unsub: (() => void) | undefined;
     listen<number>("audio-level", (e) => setLevel(e.payload)).then((u) => (unsub = u));
     return () => unsub?.();
-  }, []);
+  }, [checkModels]);
 
   const recording = phase === "recording";
   const busy = phase !== "idle";
@@ -39,6 +109,8 @@ export default function HomeTab({
         )}{" "}
         Nothing ever leaves this computer.
       </p>
+
+      {!hasModel && <SetupCard onReady={checkModels} />}
 
       <div className="mic-card">
         <div className="mic-meter">

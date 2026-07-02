@@ -1,6 +1,7 @@
 mod asr;
 mod audio;
 mod autostart;
+mod chime;
 mod commands;
 mod context;
 mod downloads;

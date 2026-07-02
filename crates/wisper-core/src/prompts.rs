@@ -86,6 +86,18 @@ pub fn build_user_prompt(transcript: &str) -> String {
     format!("Transcript:\n{transcript}")
 }
 
+/// System prompt for Command Mode: rewrite selected text per a spoken instruction.
+pub const COMMAND_RULES: &str = "You are a text editor that applies a spoken instruction to a \
+piece of text. Apply the instruction faithfully and return ONLY the edited text — no preamble, \
+no explanation, no quotes or code fences. If the instruction is a question about the text rather \
+than an edit, answer it concisely as plain text. Preserve the original formatting (line breaks, \
+lists) unless the instruction says otherwise.";
+
+/// User prompt for Command Mode.
+pub fn build_command_prompt(instruction: &str, selected_text: &str) -> String {
+    format!("Instruction: {instruction}\n\nText:\n{selected_text}")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

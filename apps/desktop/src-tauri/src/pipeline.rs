@@ -4,13 +4,14 @@
 
 use crate::asr::{dictionary_prompt, WhisperEngine};
 use crate::audio::Recorder;
-use crate::state::{AppState, DictationPhase};
+use crate::chime::{self, Chime};
+use crate::state::{AppState, DictationPhase, RecordingPurpose};
 use crate::{context, inject, paths};
 use serde::Serialize;
 use std::sync::atomic::Ordering;
 use std::time::Duration;
 use tauri::{AppHandle, Emitter, Manager};
-use wisper_core::cleanup::{clean_transcript, CleanupOutcome};
+use wisper_core::cleanup::{clean_transcript, command_edit, CleanupOutcome};
 use wisper_core::settings::RecordingMode;
 use wisper_core::{dictionary, format, history};
 
@@ -30,6 +31,18 @@ fn set_phase(app: &AppHandle, phase: DictationPhase) {
     *state.phase.lock().unwrap() = phase;
     let _ = app.emit("dictation-phase", phase);
     crate::overlay::sync(app, phase);
+
+    // Keep the tray tooltip honest about what the app is doing.
+    if let Some(tray) = app.tray_by_id("main-tray") {
+        let tip = match phase {
+            DictationPhase::Idle => "OpenSourceWisper — local dictation".to_string(),
+            DictationPhase::Recording => "OpenSourceWisper — listening…".to_string(),
+            DictationPhase::Transcribing => "OpenSourceWisper — transcribing…".to_string(),
+            DictationPhase::Cleaning => "OpenSourceWisper — polishing…".to_string(),
+            DictationPhase::Injecting => "OpenSourceWisper — inserting…".to_string(),
+        };
+        let _ = tray.set_tooltip(Some(tip));
+    }
 }
 
 fn fail(app: &AppHandle, msg: String) {
@@ -37,6 +50,7 @@ fn fail(app: &AppHandle, msg: String) {
     let _ = app.emit("dictation-error", msg);
     let state = app.state::<AppState>();
     state.busy.store(false, Ordering::SeqCst);
+    *state.purpose.lock().unwrap() = RecordingPurpose::Dictate;
     set_phase(app, DictationPhase::Idle);
 }
 
@@ -62,14 +76,47 @@ pub fn start_recording(app: &AppHandle) {
             s.audio.max_recording_secs,
         )
     };
+    let chimes = state.settings.lock().unwrap().audio.chimes;
     match Recorder::start(app.clone(), &device, threshold) {
         Ok(rec) => {
             *state.recorder.lock().unwrap() = Some(rec);
             set_phase(app, DictationPhase::Recording);
+            if chimes {
+                chime::play(Chime::Start);
+            }
             spawn_watchdog(app.clone(), mode, autostop_ms, max_secs);
         }
         Err(e) => fail(app, format!("could not start recording: {e}")),
     }
+}
+
+/// Command Mode: capture the current selection, then record the spoken
+/// instruction. On release, the selection is rewritten by the local LLM.
+pub fn start_command(app: &AppHandle) {
+    let state = app.state::<AppState>();
+    if state.busy.load(Ordering::SeqCst) || state.recorder.lock().unwrap().is_some() {
+        return;
+    }
+    if !state.settings.lock().unwrap().cleanup.enabled {
+        let _ = app.emit(
+            "dictation-error",
+            "Command Mode needs AI cleanup enabled (Settings → AI Cleanup)".to_string(),
+        );
+        return;
+    }
+    let selection = match inject::copy_selection() {
+        Ok(Some(s)) => s,
+        Ok(None) => {
+            let _ = app.emit(
+                "dictation-error",
+                "Command Mode: select some text first, then hold the hotkey and speak".to_string(),
+            );
+            return;
+        }
+        Err(e) => return fail(app, format!("could not read selection: {e}")),
+    };
+    *state.purpose.lock().unwrap() = RecordingPurpose::Command { selection };
+    start_recording(app);
 }
 
 /// In toggle mode, auto-stop on prolonged silence; in every mode, enforce the
@@ -108,6 +155,10 @@ pub fn stop_and_process(app: &AppHandle) {
     };
     if state.busy.swap(true, Ordering::SeqCst) {
         return;
+    }
+    let purpose = std::mem::take(&mut *state.purpose.lock().unwrap());
+    if state.settings.lock().unwrap().audio.chimes {
+        chime::play(Chime::Stop);
     }
     // Capture the focused app BEFORE transcription so slow ASR can't misattribute.
     let focused_app = context::focused_app_name();
@@ -172,6 +223,45 @@ pub fn stop_and_process(app: &AppHandle) {
             state.busy.store(false, Ordering::SeqCst);
             set_phase(&app, DictationPhase::Idle);
             let _ = app.emit("dictation-error", "no speech detected".to_string());
+            return;
+        }
+
+        // Command Mode: the transcript is an instruction, not content.
+        if let RecordingPurpose::Command { selection } = purpose {
+            set_phase(&app, DictationPhase::Cleaning);
+            let edited = command_edit(&settings.cleanup, &raw, &selection).await;
+            match edited {
+                Ok(text) => {
+                    set_phase(&app, DictationPhase::Injecting);
+                    let injection = settings.injection;
+                    let to_inject = text.clone();
+                    let r = tokio::task::spawn_blocking(move || {
+                        inject::inject_text(&to_inject, injection)
+                    })
+                    .await
+                    .unwrap_or_else(|e| Err(format!("injection task panicked: {e}")));
+                    if let Err(e) = r {
+                        let _ = app.emit("dictation-error", format!("could not insert text: {e}"));
+                    }
+                    let _ = app.emit(
+                        "dictation-result",
+                        DictationResult {
+                            raw: format!("[command] {raw}"),
+                            final_text: text,
+                            app: focused_app,
+                            duration_ms: recording.duration_ms,
+                            cleaned: true,
+                            skip_reason: String::new(),
+                        },
+                    );
+                }
+                Err(e) => {
+                    let _ = app.emit("dictation-error", format!("Command Mode failed: {e}"));
+                }
+            }
+            let state = app.state::<AppState>();
+            state.busy.store(false, Ordering::SeqCst);
+            set_phase(&app, DictationPhase::Idle);
             return;
         }
 
@@ -245,6 +335,7 @@ pub fn stop_and_process(app: &AppHandle) {
 pub fn cancel_recording(app: &AppHandle) {
     let state = app.state::<AppState>();
     let taken = state.recorder.lock().unwrap().take();
+    *state.purpose.lock().unwrap() = RecordingPurpose::Dictate;
     if let Some(rec) = taken {
         let _ = rec.stop();
         set_phase(app, DictationPhase::Idle);

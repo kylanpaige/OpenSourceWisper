@@ -161,6 +161,9 @@ pub struct AppSettings {
     pub hotkey: String,
     /// Optional second hotkey that always records in toggle mode ("hands-free").
     pub hotkey_toggle: String,
+    /// Optional Command Mode hotkey: hold it, speak an instruction, and the
+    /// currently selected text is rewritten by the local LLM.
+    pub hotkey_command: String,
     pub recording_mode: RecordingMode,
     pub injection: InjectionMethod,
     /// Filename of the active whisper model, e.g. "ggml-base.en.bin".
@@ -186,6 +189,7 @@ impl Default for AppSettings {
         Self {
             hotkey: default_hotkey().into(),
             hotkey_toggle: String::new(),
+            hotkey_command: String::new(),
             recording_mode: RecordingMode::PushToTalk,
             injection: InjectionMethod::Paste,
             model: "ggml-base.en.bin".into(),

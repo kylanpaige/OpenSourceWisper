@@ -71,3 +71,36 @@ fn type_text(text: &str) -> Result<(), String> {
     let mut enigo = new_enigo()?;
     enigo.text(text).map_err(|e| e.to_string())
 }
+
+/// Copy the current selection (Cmd/Ctrl+C) and return it, restoring the
+/// user's clipboard afterwards. Returns None when nothing is selected.
+/// Used by Command Mode to grab the text the instruction should edit.
+pub fn copy_selection() -> Result<Option<String>, String> {
+    let mut cb = arboard::Clipboard::new().map_err(|e| e.to_string())?;
+    let previous = cb.get_text().ok();
+    // Clear so we can tell "nothing selected" from "old clipboard content".
+    let _ = cb.clear();
+
+    let mut enigo = new_enigo()?;
+    let modifier = if cfg!(target_os = "macos") {
+        Key::Meta
+    } else {
+        Key::Control
+    };
+    enigo
+        .key(modifier, Direction::Press)
+        .map_err(|e| e.to_string())?;
+    enigo
+        .key(Key::Unicode('c'), Direction::Click)
+        .map_err(|e| e.to_string())?;
+    enigo
+        .key(modifier, Direction::Release)
+        .map_err(|e| e.to_string())?;
+    std::thread::sleep(Duration::from_millis(150));
+
+    let selection = cb.get_text().ok().filter(|s| !s.is_empty());
+    if let Some(prev) = previous {
+        let _ = cb.set_text(prev);
+    }
+    Ok(selection)
+}

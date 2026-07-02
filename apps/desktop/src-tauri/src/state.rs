@@ -19,8 +19,20 @@ pub enum DictationPhase {
     Injecting,
 }
 
+/// Why the current recording exists: normal dictation, or a Command Mode
+/// instruction that should rewrite `selection`.
+#[derive(Debug, Clone, Default)]
+pub enum RecordingPurpose {
+    #[default]
+    Dictate,
+    Command {
+        selection: String,
+    },
+}
+
 pub struct AppState {
     pub settings: Mutex<AppSettings>,
+    pub purpose: Mutex<RecordingPurpose>,
     pub dictionary: Mutex<Vec<DictionaryEntry>>,
     pub recorder: Mutex<Option<Recorder>>,
     /// Loaded whisper context; rebuilt when the selected model changes.
@@ -36,6 +48,7 @@ impl AppState {
     pub fn new(settings: AppSettings, dictionary: Vec<DictionaryEntry>) -> Self {
         Self {
             settings: Mutex::new(settings),
+            purpose: Mutex::new(RecordingPurpose::Dictate),
             dictionary: Mutex::new(dictionary),
             recorder: Mutex::new(None),
             engine: Mutex::new(None),

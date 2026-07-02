@@ -101,10 +101,20 @@ export default function SettingsTab({
               placeholder="None — click to set"
             />
           </label>
+          <label>
+            Command Mode hotkey (optional)
+            <HotkeyInput
+              value={s.hotkey_command}
+              onChange={(hotkey_command) => onSave({ ...s, hotkey_command })}
+              placeholder="None — click to set"
+            />
+          </label>
         </div>
         <p className="muted small">
           Backspace clears a hotkey. In toggle mode, recording also stops automatically after{" "}
-          {Math.round(s.audio.silence_autostop_ms / 1000)}s of silence.
+          {Math.round(s.audio.silence_autostop_ms / 1000)}s of silence. Command Mode: select text
+          anywhere, hold the hotkey, and speak an instruction like "make this more formal" — the
+          selection is rewritten in place (needs AI cleanup enabled).
         </p>
       </div>
 
@@ -217,6 +227,14 @@ export default function SettingsTab({
 
       <div className="card">
         <h3>General</h3>
+        <label className="row">
+          <input
+            type="checkbox"
+            checked={s.audio.chimes}
+            onChange={(e) => onSave({ ...s, audio: { ...s.audio, chimes: e.target.checked } })}
+          />
+          Play a chime when recording starts/stops
+        </label>
         <label className="row">
           <input
             type="checkbox"

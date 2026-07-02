@@ -45,6 +45,7 @@ export interface AudioSettings {
 export interface AppSettings {
   hotkey: string;
   hotkey_toggle: string;
+  hotkey_command: string;
   recording_mode: RecordingMode;
   injection: InjectionMethod;
   model: string;
