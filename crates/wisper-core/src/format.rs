@@ -137,7 +137,10 @@ mod tests {
 
     #[test]
     fn strips_fillers() {
-        let got = post_process("Um, I think, uh, we should ship it.", &cfg(true, false, true));
+        let got = post_process(
+            "Um, I think, uh, we should ship it.",
+            &cfg(true, false, true),
+        );
         assert_eq!(got, "I think, we should ship it.");
     }
 

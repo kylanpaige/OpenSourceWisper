@@ -3,3 +3,9 @@ node_modules/
 dist/
 *.log
 .DS_Store
+
+# Wisp OS runtime artifacts
+vault/log/
+wisp.config.json
+__pycache__/
+*.pyc

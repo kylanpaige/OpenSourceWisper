@@ -233,7 +233,8 @@ fn default_profiles() -> Vec<AppProfile> {
             name: "Code editor".into(),
             app_match: "code".into(),
             tone: Tone::Technical,
-            instructions: "Preserve technical terms, identifiers and casing exactly as spoken.".into(),
+            instructions: "Preserve technical terms, identifiers and casing exactly as spoken."
+                .into(),
             enabled: true,
         },
     ]
