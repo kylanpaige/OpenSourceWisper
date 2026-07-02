@@ -15,7 +15,9 @@ tauri-build = { version = "2", features = [] }
 
 [dependencies]
 wisper-core = { path = "../../../crates/wisper-core" }
-tauri = { version = "2", features = ["tray-icon", "image-png"] }
+# macos-private-api unlocks transparent windows on macOS (used by the
+# recording overlay); it is a no-op on Windows/Linux.
+tauri = { version = "2", features = ["tray-icon", "image-png", "macos-private-api"] }
 tauri-plugin-global-shortcut = "2"
 tauri-plugin-autostart = "2"
 serde = { version = "1", features = ["derive"] }
