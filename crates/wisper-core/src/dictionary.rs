@@ -64,7 +64,10 @@ mod tests {
     #[test]
     fn replaces_case_insensitively_on_word_boundaries() {
         let entries = vec![DictionaryEntry::new("jira", "Jira")];
-        assert_eq!(apply(&entries, "check jira and JIRA now"), "check Jira and Jira now");
+        assert_eq!(
+            apply(&entries, "check jira and JIRA now"),
+            "check Jira and Jira now"
+        );
         // No mid-word replacement.
         assert_eq!(apply(&entries, "jirafication"), "jirafication");
     }
@@ -90,10 +93,7 @@ mod tests {
 
     #[test]
     fn snippet_expansion() {
-        let entries = vec![DictionaryEntry::new(
-            "my signature",
-            "Best regards,\nKylan",
-        )];
+        let entries = vec![DictionaryEntry::new("my signature", "Best regards,\nKylan")];
         assert_eq!(apply(&entries, "my signature"), "Best regards,\nKylan");
     }
 }

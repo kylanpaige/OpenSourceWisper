@@ -152,8 +152,8 @@ fn run_stream(
         meter_buf.extend_from_slice(&mono);
         samples.lock().unwrap().extend_from_slice(&mono);
         if last_emit.elapsed() >= Duration::from_millis(60) && !meter_buf.is_empty() {
-            let rms = (meter_buf.iter().map(|s| s * s).sum::<f32>() / meter_buf.len() as f32)
-                .sqrt();
+            let rms =
+                (meter_buf.iter().map(|s| s * s).sum::<f32>() / meter_buf.len() as f32).sqrt();
             meter_buf.clear();
             last_emit = Instant::now();
             if rms > silence_threshold {

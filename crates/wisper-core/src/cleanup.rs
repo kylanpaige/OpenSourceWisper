@@ -87,7 +87,11 @@ pub async fn clean_transcript(
                     { "role": "user", "content": user },
                 ],
             });
-            let resp = client.post(format!("{base}/api/chat")).json(&body).send().await;
+            let resp = client
+                .post(format!("{base}/api/chat"))
+                .json(&body)
+                .send()
+                .await;
             match resp {
                 Ok(r) if r.status().is_success() => r
                     .json::<OllamaChatResponse>()
@@ -211,7 +215,9 @@ pub async fn command_edit(
     let content = content.ok_or("malformed LLM response")?;
     let mut text = content.trim();
     if text.starts_with("```") {
-        text = text.trim_start_matches("```").trim_start_matches(|c| c != '\n');
+        text = text
+            .trim_start_matches("```")
+            .trim_start_matches(|c| c != '\n');
         text = text.trim_end_matches("```");
     }
     let text = text.trim().to_string();
@@ -229,7 +235,9 @@ pub fn sanitize_llm_output(output: &str, transcript: &str) -> String {
 
     // Strip code fences.
     if text.starts_with("```") {
-        text = text.trim_start_matches("```").trim_start_matches(|c| c != '\n');
+        text = text
+            .trim_start_matches("```")
+            .trim_start_matches(|c| c != '\n');
         text = text.trim_end_matches("```");
     }
     let mut text = text.trim().to_string();
@@ -239,7 +247,9 @@ pub fn sanitize_llm_output(output: &str, transcript: &str) -> String {
         let first_line = text[..idx].to_lowercase();
         if (first_line.starts_with("here") || first_line.ends_with(':'))
             && first_line.len() < 80
-            && (first_line.contains("clean") || first_line.contains("text") || first_line.contains("transcript"))
+            && (first_line.contains("clean")
+                || first_line.contains("text")
+                || first_line.contains("transcript"))
         {
             text = text[idx + 1..].trim().to_string();
         }
@@ -250,8 +260,11 @@ pub fn sanitize_llm_output(output: &str, transcript: &str) -> String {
         let bytes = text.as_bytes();
         if (bytes[0] == b'"' && bytes[text.len() - 1] == b'"')
             || (text.starts_with('\u{201C}') && text.ends_with('\u{201D}'))
-    {
-            text = text[1..].trim_end_matches(['"', '\u{201D}']).trim().to_string();
+        {
+            text = text[1..]
+                .trim_end_matches(['"', '\u{201D}'])
+                .trim()
+                .to_string();
         }
     }
 
@@ -295,7 +308,12 @@ mod tests {
         cfg.min_chars = 1;
         cfg.timeout_ms = 1500;
         cfg.base_url = "http://127.0.0.1:1".into(); // nothing listens here
-        let out = rt.block_on(clean_transcript(&cfg, "hello world this is a test", None, &[]));
+        let out = rt.block_on(clean_transcript(
+            &cfg,
+            "hello world this is a test",
+            None,
+            &[],
+        ));
         assert!(matches!(out, CleanupOutcome::Skipped(_)));
     }
 

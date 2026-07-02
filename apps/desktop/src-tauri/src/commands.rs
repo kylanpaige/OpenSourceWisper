@@ -21,7 +21,11 @@ pub fn get_settings(state: State<AppState>) -> AppSettings {
 }
 
 #[tauri::command]
-pub fn set_settings(app: AppHandle, state: State<AppState>, settings: AppSettings) -> Result<(), String> {
+pub fn set_settings(
+    app: AppHandle,
+    state: State<AppState>,
+    settings: AppSettings,
+) -> Result<(), String> {
     let hotkeys_changed = {
         let mut current = state.settings.lock().unwrap();
         let changed =
