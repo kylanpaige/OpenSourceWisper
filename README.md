@@ -28,6 +28,15 @@ npm run tauri dev      # run in dev mode
 npm run tauri build    # produce .dmg / .msi installers
 ```
 
+Or drive it from the repo root (the app lives in `apps/desktop`):
+
+```bash
+cd OpenSourceWisper
+npm run setup   # installs apps/desktop deps
+npm run dev     # runs the app
+npm run build   # builds installers
+```
+
 CI builds installers for macOS and Windows on every push (see Actions artifacts).
 
 ### First run

@@ -1,0 +1,11 @@
+{
+  "name": "opensourcewisper",
+  "private": true,
+  "description": "Convenience scripts so you can run the app from the repo root. The actual app lives in apps/desktop.",
+  "scripts": {
+    "setup": "npm --prefix apps/desktop install",
+    "dev": "npm --prefix apps/desktop run tauri dev",
+    "build": "npm --prefix apps/desktop run tauri build",
+    "tauri": "npm --prefix apps/desktop run tauri"
+  }
+}
